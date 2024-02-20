@@ -1,0 +1,340 @@
+---
+title: "Final Commented Code"
+author: "Nicholas Ilvento"
+date: '2022-12-13'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(mosaic)
+library(DescTools)
+library(binom)
+library(boot)
+library(TeachingDemos)
+library(exactci)
+library(PropCIs)
+library(XNomial)
+library(EMT)
+library(readxl)
+library(SciViews)
+library(epitools)
+library(perm)
+library(combinat)
+library(purrr)
+library(MonteCarlo)
+library(formatR)
+```
+
+```{r}
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+```{r}
+american_girl_table=read.table("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/AmericanGirl.txt")
+funky_table=read.table("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/Funky.txt")
+hurts_table=read.table("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/Hurts.txt")
+judith_table=read.table("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/Judith.txt")
+ring_of_fire_table=read.table("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/RingofFire.txt")
+watch_tower_table=read.table("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/Watchtower.txt")
+wolf_table=read.table("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/Wolf.txt")
+```
+
+```{r}
+#function for turning .txt version of the songs into vectors
+vector_function=function(sample_data){
+  vec=c()
+  for(i in 1:length(sample_data)){
+    vec=c(vec,sample_data[1,i])
+  }
+  return(vec)
+}
+```
+
+```{r}
+#turns American Girl into a vector
+american_girl_actual=vector_function(american_girl_table)
+#turns Funky into a vector
+funky_actual=vector_function(funky_table)
+#turns Hurts into a vector
+hurts_actual=vector_function(hurts_table)
+#turns Judith into a vector
+judith_actual=vector_function(judith_table) 
+#turns Ring of Fire into a vector
+ring_of_fire_actual=vector_function(ring_of_fire_table) 
+#turns Watch Tower into a vector
+watch_tower_actual=vector_function(watch_tower_table) 
+#turns Wolf into a vector
+wolf_actual=vector_function(wolf_table) 
+```
+
+#Calculating Our Metric
+```{r}
+#function for calculating number of changes of a song
+number_changes=function(data){ 
+  #finds length of consecutive (or single) values
+  hello=rle(data) 
+  #number of times there are consecutive (or single) values
+  goodbye=length(hello$lengths) 
+  return(goodbye)
+}
+```
+
+```{r}
+number_changes(american_girl_actual) #number of changes in American Girl
+number_changes(funky_actual) #number of changes in Funky
+number_changes(hurts_actual) #number of changes in Hurts
+number_changes(judith_actual) #number of changes in Judith
+number_changes(ring_of_fire_actual) #number of changes in Ring of Fire
+number_changes(watch_tower_actual) #number of changes in Watch Tower
+number_changes(wolf_actual) #number of changes in Wolf
+```
+
+#Calculating P-Values
+```{r}
+#function for hypothesis test with resampling without replacement
+bootstrap_function_no_replacement=function(sample_data,B=1000){
+  length_sample=length(sample_data)
+  sample_metric=number_changes(sample_data)
+  resample_metric_vec=c()
+  bootstrap_data=data.frame(matrix(nrow=length_sample,ncol=B))
+  #data frame created for containing bootstraps
+  #columns = number of bootstraps
+  #rows = length of song
+  for(i in 1:B){
+    #resampling without replacement from the given data vector
+    bootstrap_data[,i]=sample(sample_data,size=length(sample_data),replace=FALSE) 
+    #computes number of changes in each resample
+    resample_metric_vec[i]=number_changes(bootstrap_data[,i]) 
+  }
+  #takes the average number of changes of the resample
+  average_resample_metric=mean(resample_metric_vec) 
+  #finds the difference between the sample metric and average resample metric
+  difference=abs(sample_metric-average_resample_metric) 
+  #calculates the proportion of number of changes in the resample as extreme as or more extreme than the sample number of changes
+  p_value=(count(resample_metric_vec>=(average_resample_metric+difference))+count(resample_metric_vec<=(average_resample_metric-difference)))/length(resample_metric_vec) 
+  return(p_value)
+}
+```
+
+```{r}
+set.seed(5000)
+#bootstrap resample without replacement of American Girl
+amg_no=bootstrap_function_no_replacement(american_girl_actual) 
+#bootstrap resample without replacement of Funky
+fun_no=bootstrap_function_no_replacement(funky_actual) 
+#bootstrap resample without replacement of Hurts
+hur_no=bootstrap_function_no_replacement(hurts_actual) 
+#bootstrap resample without replacement of Judith
+jud_no=bootstrap_function_no_replacement(judith_actual) 
+ #bootstrap resample without replacement of Ring of Fire
+rin_no=bootstrap_function_no_replacement(ring_of_fire_actual)
+#bootstrap resample without replacement of Watch Tower
+wat_no=bootstrap_function_no_replacement(watch_tower_actual) 
+#bootstrap resample without replacement of Wolf
+wol_no=bootstrap_function_no_replacement(wolf_actual) 
+no_replace=c(amg_no,fun_no,hur_no,jud_no,rin_no,wat_no,wol_no)
+no_replace
+```
+
+```{r}
+bootstrap_function_with_replacement=function(sample_data,B=1000){
+  length_sample=length(sample_data)
+  sample_metric=number_changes(sample_data)
+  resample_metric_vec=c()
+  bootstrap_data=data.frame(matrix(nrow=length_sample,ncol=B))
+  #data frame created for containing bootstraps
+  #columns = number of bootstraps
+  #rows = length of song
+  for(i in 1:B){
+    #resampling with replacement from the given data vector
+    bootstrap_data[,i]=sample(sample_data,size=length(sample_data),replace=TRUE) 
+    #computes number of changes in each resample
+    resample_metric_vec[i]=number_changes(bootstrap_data[,i]) 
+  }
+  #takes the average number of changes of the resample
+  average_resample_metric=mean(resample_metric_vec) 
+  #finds the difference between the sample metric and average resample metric
+  difference=abs(sample_metric-average_resample_metric) 
+  #calculates the proportion of number of changes in the resample as extreme as or more extreme than the sample number of changes
+  p_value=(count(resample_metric_vec>=(average_resample_metric+difference))+count(resample_metric_vec<=(average_resample_metric-difference)))/length(resample_metric_vec) 
+  return(p_value)
+}
+```
+
+```{r}
+set.seed(5000)
+#bootstrap resample with replacement of American Girl
+amg_yes=bootstrap_function_with_replacement(american_girl_actual) 
+#bootstrap resample with replacement of Funky
+fun_yes=bootstrap_function_with_replacement(funky_actual) 
+#bootstrap resample with replacement of Hurts
+hur_yes=bootstrap_function_with_replacement(hurts_actual) 
+#bootstrap resample with replacement of Judith
+jud_yes=bootstrap_function_with_replacement(judith_actual) 
+#bootstrap resample with replacement of Ring of Fire
+rin_yes=bootstrap_function_with_replacement(ring_of_fire_actual)
+#bootstrap resample with replacement of Watch Tower
+wat_yes=bootstrap_function_with_replacement(watch_tower_actual) 
+#bootstrap resample with replacement of Wolf
+wol_yes=bootstrap_function_with_replacement(wolf_actual) 
+yes_replace=c(amg_yes,fun_yes,hur_yes,jud_yes,rin_yes,wat_yes,wol_yes)
+yes_replace
+```
+
+```{r}
+parametric_test=function(sample_data,B=1000){
+  length_sample=length(sample_data)
+  sample_metric=number_changes(sample_data)
+  null_metric_vec=c()
+  null_data=data.frame(matrix(nrow=length_sample,ncol=B))
+  #data frame for bootstrap; rows = length of song; columns = number of bootstraps
+  for(i in 1:B){ #create distribution of number of changes given the sample data is random
+    #sample = random Bernoulli's
+    null_data[,i]=rbernoulli(n=length_sample,p=0.5)  
+    #creates vector of metric in each Bernoulli sample
+    null_metric_vec[i]=number_changes(null_data[,i]) 
+  }
+  #finds the average number of changes in the collection of random Bernoulli samples
+  average_null_metric=mean(null_metric_vec) 
+  #finds the difference between the average number of changes in the collection of random Bernoulli samples and the number of changes   in the original sample
+  difference=abs(sample_metric-average_null_metric) 
+  #calculates the proportion of the number of changes in the collection of random Bernoulli samples as extreme as or more extreme than   the number of changes in the sample
+  p_value=(count(null_metric_vec>=(average_null_metric+difference))+count(null_metric_vec<=(average_null_metric-difference)))/length(null_metric_vec) 
+  return(p_value)
+}
+```
+
+```{r}
+set.seed(5000)
+amg_par=parametric_test(american_girl_actual) #parametric test of American Girl
+fun_par=parametric_test(funky_actual) #parametric test of Funky
+hur_par=parametric_test(hurts_actual) #parametric test of Hurts
+jud_par=parametric_test(judith_actual) #parametric test of Judith
+rin_par=parametric_test(ring_of_fire_actual) #parametric test of Ring of Fire
+wat_par=parametric_test(watch_tower_actual) #parametric test of Watch Tower
+wol_par=parametric_test(wolf_actual) #parametric test of Wolf
+parametric=c(amg_par,fun_par,hur_par,jud_par,rin_par,wat_par,wol_par)
+parametric
+```
+
+```{r}
+#table containing the p-value results from the three tests for each of the seven songs
+p_value_results=matrix(data=c(no_replace,yes_replace,parametric),nrow=7,ncol=3)
+colnames(p_value_results)=c("Bootstrap without Replacement","Bootstrap with Replacement","Parametric")
+rownames(p_value_results)=c("American Girl","Play that Funky Music","Hurts So Good","Judith","Ring of Fire","Watch Tower","Wolf Like Me")
+p_value_results
+```
+
+#Calculating Type 1 Error and Power
+```{r}
+set.seed(3)
+test_song_1=rbernoulli(100,p=0.5) #takes a random Bernoulli sample of length 100
+```
+
+```{r}
+#Permutation Test
+permutation=function(song,B=5000){
+  #calculate actual test statistic of the sample
+  test_statistic=number_changes(song)  
+  #vector to store results from permutation samples 
+  star_vector=rep(0,B)
+  for(i in 1:B){
+    #resamples song with replacement
+    resample_data=sample(song,replace=TRUE) 
+    #finds the number of changes of each resample
+    star_vector[i]=number_changes(resample_data) 
+  }
+  #finds the proportion of number of changes in the resamples greater than the number of changes of the sample
+  pval=(sum(star_vector>test_statistic)+1)/(B+1)  
+  return(pval)
+}
+```
+
+```{r}
+permutation(test_song_1) #calculates empirical type 1 error given of this test
+```
+
+```{r}
+set.seed(10)
+nperm=500
+pval=matrix(0,12,100)
+#first scenario: Pairwise Correlations, song length = 200
+p20_pos30_n200=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p20_corrpos30_n200_r100.txt"),ncol=200,byrow=TRUE)
+for(i in 1:100){
+  pval[1,i]=permutation(p20_pos30_n200[i,],nperm)
+}
+#second scenario: Pairwise Correlations, song length = 600
+p20_pos30_n600=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p20_corrpos30_n600_r100.txt"),ncol=600,byrow=TRUE)
+for(i in 1:100){
+  pval[2,i]=permutation(p20_pos30_n200[i,],nperm)
+}
+#third scenario: Varying Difficulty, song length = 200
+p_varies_block_n200=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.varies_block_n200_r100.txt"),ncol=200,byrow=TRUE)
+for(i in 1:100){
+  pval[3,i]=permutation(p_varies_block_n200[i,],nperm)
+}
+#fourth scenario: Varying Difficulty song length = 600
+p_varies_block_n600=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.varies_block_n600_r100.txt"),ncol=600,byrow=TRUE)
+for(i in 1:100){
+  pval[4,i]=permutation(p_varies_block_n600[i,],nperm)
+}
+#fifth scenario: Autoregressive Type 1, song length = 200
+p10_ar50_n200=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.10_ar50_n200_r100.txt"),ncol=200,byrow=TRUE)
+for(i in 1:100){
+  pval[5,i]=permutation(p10_ar50_n200[i,],nperm)
+}
+#sixth scenario: Autoregressive Type 1, song length = 600
+p10_ar50_n600=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.10_ar50_n600_r100.txt"),ncol=600,byrow=TRUE)
+for(i in 1:100){
+  pval[6,i]=permutation(p10_ar50_n600[i,],nperm)
+}
+#seventh scenario: Autoregressive Type 2 song length = 200
+p10_ar30_n200=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.10_ar30_n200_r100.txt"),ncol=200,byrow=TRUE)
+for(i in 1:100){
+  pval[7,i]=permutation(p10_ar30_n200[i,],nperm)
+}
+#eighth scenario: Autoregressive Type 2, song length = 600
+p10_ar30_n600=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.10_ar30_n600_r100.txt"),ncol=600,byrow=TRUE)
+for(i in 1:100){
+  pval[8,i]=permutation(p10_ar30_n600[i,],nperm)
+}
+#ninth scenario: Autoregressive Type 3, song length = 200
+p20_ar50_n200=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.20_ar50_n200_r100.txt"),ncol=200,byrow=TRUE)
+for(i in 1:100){
+  pval[9,i]=permutation(p20_ar50_n200[i,],nperm)
+}
+#tenth scenario: Autoregressive Type 3, song length = 600
+p20_ar50_n600=matrix(scan("C:/Users/nicki/OneDrive/Documents/School/R/MA-380/p.20_ar50_n600_r100.txt"),ncol=600,byrow=TRUE)
+for(i in 1:100){
+  pval[10,i]=permutation(p20_ar50_n600[i,],nperm)
+}
+#eleventh scenario: Random Binomial p=0.2, song length = 200
+for(i in 1:100){
+  fake_song=rbinom(200,1,0.2)
+  pval[11,i]=permutation(fake_song,nperm)
+}
+#twelfth scenario: Random Binomial p=0.2, song length = 600
+for(i in 1:100){
+  fake_song=rbinom(600,1,0.2)
+  pval[12,i]=permutation(fake_song,nperm)
+}
+#Use the p-values for all simulated songs for each scenario to approximate the power of your method under each type of alternative
+power=matrix(0,12,3)  #allocate space for the approximated power
+alpha=c(0.01,0.05,0.10)  #defines alpha (Type I error) levels
+#loops through each scenario and level of alpha to find power
+for(i in 1:12){
+  for(j in 1:3){
+     power[i,j]=mean(pval[i,]<alpha[j])
+  }
+}
+colnames(power)=c("alpha=0.01","alpha=0.05","alpha=0.1")
+rownames(power)=c("Pairwise Correlations, 200","Pairwise Correlations, 600","Varying Difficulty, 200","Varying Difficulty, 600","Autoregressive Type 1, 200","Autoregressive Type 1, 600","Autoregressive Type 2, 200","Autoregressive Type 2, 600","Autoregressive Type 3, 200","Autoregressive Type 3, 600","Random Binomial p=0.2, 200","Random Binomial p=0.2, 600")
+power
+```
+
+
+
+
+
